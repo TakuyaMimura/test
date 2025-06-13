@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>筋肉徒競走🔥</title>
+  <!-- ゲームのタイトル表示 -->
+  <style>
+    body {
+      background-color: #ccc;
+      margin: 0;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+    #message, #goalText, #resultText, #retryLink, #boltLink {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+    #countdown{
+      display: none;
+    }
+    #goalText {
+      color: red;
+      display: none;
+    }
+    #resultText {
+      color: green;
+      display: none;
+    }
+    #retryLink, #boltLink {
+      display: none;
+      font-size: 20px;
+    }
+    #retryLink a, #boltLink a {
+      text-decoration: none;
+      color: blue;
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+      background-color: #d04b36;
+      border: 4px solid #222;
+    }
+    #startButton {
+      padding: 10px 30px;
+      font-size: 24px;
+      margin-top: 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #startButton:hover {
+      background-color: #218838;
+   }
+  </style>
+</head>
+<body>
+  <h1>筋肉徒競走🔥</h1>
+  <div id="message">スペースを連打して速く走れ！</div>
+  <!-- 開始前のルール説明 -->
+
+  <div id="countdown"></div>
+  <!-- カウントダウン表示 -->
+
+  <div id="goalText">🎉 ゴール！ 🎉</div>
+  <!-- ゴール到着時のテキスト -->
+
+  <div id="resultText"></div>
+  <!-- 勝敗結果表示 -->
+
+  <div id="retryLink"><a href="">🔁 もう一度走る！</a></div>
+  <!-- リトライ -->
+
+  <div id="boltLink"><a href="https://www.youtube.com/watch?v=2O7K-8G2nwU" target="_blank">🏃‍♂️ もっと速い人の動画</a></div>
+  <!-- ウサイン・ボルトの動画リンク -->
+
+  <button id="startButton">レースを始める！</button>
+  <!-- ゲーム開始ボタン -->
+
+  <canvas id="runner" width="900" height="300"></canvas>
+  <!-- 棒人間が走るキャンバス -->
+
+  <script>
+    const canvas = document.getElementById('runner');
+    const ctx = canvas.getContext('2d');
+
+    // 各走者の初期位置
+    let x1 = 50, x2 = 50, x3 = 50;
+
+    // 足の動きを表す角度（アニメーション用）
+    let legAngle = 0;
+
+    // ゴールラインの位置
+    const goalX = 750;
+
+    // フラグ変数（ゲーム状態の管理）
+    let started = false; // レースが開始したかどうか
+    let tapeCut = false; // ゴールテープを切ったか
+    let goalShown = false; // 結果表示が完了したか
+    let playerSpeed = 0; // プレイヤーのスピード
+
+    // カウントダウン表示用
+    let countdownValue = null;
+
+    // 🏃‍♂️ 順位配列
+    let rankOrder = [];
+
+    // 💥 スペースキーで加速
+    let spacePressed = false;
+
+
+    // スペースキーが押されたら加速（ただし押しっぱなし防止）
+    document.addEventListener('keydown', (e) => {
+      if (started && e.code === 'Space' && !spacePressed) {
+        playerSpeed += 0.8; // ← ここで加速度を調整（大きくすれば速くなる）
+        spacePressed = true; //1回の押下につき1回の加速
+      }
+    });
+
+    // スペースキーを離したら再び押せるようにする
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        spacePressed = false;
+      }
+    });
+
+    // 🕒 カウントダウン
+    function startCountdown() {
+      setTimeout(() => {
+        let count = 3;
+        countdownValue = count;
+
+
+      const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countdownValue = count;
+        } else if (count ===0) {
+          countdownValue = 'パンッ！！'; // スタートの掛け声
+          setTimeout(() => {
+          countdownValue = null;
+          document.getElementById('message').style.display = 'none'; // 説明文を非表示
+          started = true; // レース開始
+         },1000);
+          clearInterval(interval);
+        }
+      }, 1000);
+     }, 2000);
+    }
+
+    document.getElementById('startButton').addEventListener('click', () => {
+      document.getElementById('startButton').style.display = 'none';
+      startCountdown();
+      animate();
+    });
+
+    // 🏁 トラック
+    function drawTrack() {
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      for (let y = 70; y <= 230; y += 60) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      if (!tapeCut) {
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(goalX, 50);
+        ctx.lineTo(goalX, 250);
+        ctx.stroke();
+      }
+    }
+
+    // 💪 棒人間
+    function drawMuscularStickMan(x, y, legAngle, color, label = '', labelColor = 'white') {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y - 40, 10, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 30);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 30);
+      ctx.lineTo(x - 12, y - 25);
+      ctx.moveTo(x, y - 30);
+      ctx.lineTo(x + 12, y - 25);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x, y - 20);
+      ctx.quadraticCurveTo(x - 22, y - 10, x - 17, y);
+      ctx.moveTo(x, y - 20);
+      ctx.quadraticCurveTo(x + 22, y - 10, x + 17, y);
+      ctx.stroke();
+
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x - 15, y + 10, x - 18 * Math.cos(legAngle), y + 35);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + 15, y + 10, x + 18 * Math.cos(legAngle), y + 35);
+      ctx.stroke();
+
+      if (label) {
+        ctx.fillStyle = labelColor;
+        ctx.font = '16px sans-serif';
+        ctx.fillText(label, x - 20, y - 50);
+      }
+    }
+
+    // 🏆 表彰台描画
+    function drawPodium() {
+      ctx.fillStyle = "#ffe";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#888";
+      ctx.fillRect(350, 200, 60, 60); // 2位
+      ctx.fillRect(430, 170, 60, 90); // 1位
+      ctx.fillRect(510, 220, 60, 40); // 3位
+
+      const getLabel = (name, pos) => {
+        if (name === 'player') return pos === 0 ? '神' : 'あなた';
+        return '';
+      };
+
+      const getColor = (pos) => ['gold', 'silver', 'brown'][pos];
+
+      const names = ['player', 'opponent1', 'opponent2'];
+      const xs = [460, 380, 540];
+      const ys = [170, 200, 220];
+
+      for (let i = 0; i < 3; i++) {
+        drawMuscularStickMan(xs[i], ys[i], 0,
+          ['black', 'blue', 'green'][names.indexOf(rankOrder[i])],
+          getLabel(rankOrder[i], i),
+          getColor(i)
+        );
+      }
+
+      ctx.font = "28px sans-serif";
+      ctx.fillStyle = "#d04b36";
+      ctx.fillText("👑 表彰式 👑", 370, 100);
+    }
+
+    // 🎬 メインループ
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // 画面を毎フレームクリア
+
+      drawTrack(); //トラックの白線を描画
+
+      // 各棒人間の描画（足の角度でアニメーション表現）
+      drawMuscularStickMan(x1, 100, Math.sin(legAngle), 'black', 'あなた');
+      drawMuscularStickMan(x2, 160, Math.sin(legAngle + 1), 'blue');
+      drawMuscularStickMan(x3, 220, Math.sin(legAngle + 2), 'green');
+
+      legAngle += 0.2; // 足の動きの進行
+
+
+      // カウントダウン中はその数字を中央に描画してループ継続
+      if (countdownValue !== null) {
+        ctx.fillStyle = 'white';
+        ctx.font = '64px sans-serif';
+        ctx.fillText(countdownValue, canvas.width / 2 -30, canvas.height / 2);
+        requestAnimationFrame(animate);
+        return;
+      }
+
+      // 減速（摩擦的な表現）
+      if (playerSpeed > 0.5) playerSpeed -= 0.05;
+
+      // ゴール判定処理
+      if (!tapeCut) {
+        if (started) {
+             // 各走者を移動させる
+        x1 += playerSpeed * 0.5;
+        x2 += Math.random() * 2.8 + 2.0;
+        x3 += Math.random() * 2.8 + 2.0;
+        }
+
+        // 誰かがゴールしたかチェック
+        if (x1 >= goalX || x2 >= goalX || x3 >= goalX) {
+          tapeCut = true;
+
+          // 順位判定
+          const results = [
+            { name: 'player', x: x1 },
+            { name: 'opponent1', x: x2 },
+            { name: 'opponent2', x: x3 }
+          ];
+          results.sort((a, b) => b.x - a.x); // 降順に並べる
+          rankOrder = results.map(r => r.name); // 名前の配列に変換
+        }
+      } else if (!goalShown) {
+        // 結果表示（1度だけ）
+        document.getElementById('goalText').style.display = 'block';
+        document.getElementById('resultText').textContent =
+          rankOrder[0] === 'player' ? '🏆 優勝！筋肉最強！筋肉こそが正義！' : '😓 負け…筋トレしてリベンジ！';
+        document.getElementById('resultText').style.display = 'block';
+        document.getElementById('retryLink').style.display = 'block';
+        document.getElementById('boltLink').style.display = 'block';
+
+        // 表彰式を2秒後に描画
+        setTimeout(() => {
+          drawPodium();
+        }, 2000);
+
+        goalShown = true;
+      }
+
+      // ゴールしていない間は次のフレームをリクエスト
+      if (!goalShown) requestAnimationFrame(animate);
+    }
+  </script>
+</body>
+</html>

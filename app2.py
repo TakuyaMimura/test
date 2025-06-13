@@ -1,6 +1,6 @@
-#python -m venv venv
-#venv\Scripts\activate
-#pip install pygame
+#python -m venv venv 仮想環境の作成
+#venv\Scripts\activate 仮想環境を有効化
+#pip install pygame 拡張機能をインストール
 
 import pygame
 import random
